@@ -114,6 +114,7 @@ class TrayApp:
             pystray.MenuItem("Connect Now", self._on_connect),
             pystray.MenuItem("Disconnect Now", self._on_disconnect),
             pystray.Menu.SEPARATOR,
+            pystray.MenuItem("Settings", self._on_settings),
             pystray.MenuItem("Quit", self._on_quit),
         )
 
@@ -141,3 +142,8 @@ class TrayApp:
         log.info("Quit requested.")
         self.engine.stop()
         icon.stop()
+
+    def _on_settings(self, icon, item):
+        log.info("Settings requested.")
+        import gui
+        threading.Thread(target=gui.open_settings_window, daemon=True).start()

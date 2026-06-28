@@ -13,7 +13,7 @@ import os
 import subprocess
 import time
 
-from config import DEVICE_NAME
+from settings_manager import settings
 
 log = logging.getLogger(__name__)
 
@@ -126,9 +126,13 @@ _bind_functions()
 class BluetoothManager:
     """Manages connection lifecycle for a paired Bluetooth audio device."""
 
-    def __init__(self, device_name: str = DEVICE_NAME):
-        self.device_name = device_name
+    def __init__(self, device_name: str = None):
+        self._device_name_override = device_name
         self._pnp_instance_id = None  # cached on first lookup
+
+    @property
+    def device_name(self):
+        return self._device_name_override or settings.get("DEVICE_NAME", "AirPods")
 
     # ── Public API ────────────────────────────────────────────────────
 

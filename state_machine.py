@@ -11,11 +11,8 @@ import logging
 
 from audio_monitor import AudioMonitor
 from bluetooth_manager import BluetoothManager
-from config import (
-    AUDIO_POLL_INTERVAL,
-    DISCONNECT_TIMEOUT,
-    CONNECTION_RETRY_DELAY,
-)
+from settings_manager import settings
+from config import AUDIO_POLL_INTERVAL
 
 log = logging.getLogger(__name__)
 
@@ -148,7 +145,7 @@ class AutoSwitchEngine:
                     remaining = ""
                     if current == State.COOLDOWN and self._cooldown_start:
                         elapsed = now - self._cooldown_start
-                        remaining = f" ({DISCONNECT_TIMEOUT - elapsed:.0f}s remaining)"
+                        remaining = f" ({settings.get('DISCONNECT_TIMEOUT', 2) - elapsed:.0f}s remaining)"
                     log.info(f"[tick] state={current.value}, audio={audio_playing}{remaining}")
                     _last_state_log = now
 
@@ -179,7 +176,7 @@ class AutoSwitchEngine:
     def _do_connect(self):
         """Attempt to connect AirPods."""
         now = time.monotonic()
-        if now - self._last_connect_attempt < CONNECTION_RETRY_DELAY:
+        if now - self._last_connect_attempt < settings.get('CONNECTION_RETRY_DELAY', 5):
             return
 
         self._last_connect_attempt = now
@@ -204,9 +201,9 @@ class AutoSwitchEngine:
     def _start_cooldown(self):
         self._cooldown_start = time.monotonic()
         self.state = State.COOLDOWN
-        log.info(f"Audio stopped — cooldown started ({DISCONNECT_TIMEOUT}s).")
+        log.info(f"Audio stopped — cooldown started ({settings.get('DISCONNECT_TIMEOUT', 2)}s).")
 
     def _cooldown_expired(self) -> bool:
         if self._cooldown_start is None:
             return False
-        return (time.monotonic() - self._cooldown_start) >= DISCONNECT_TIMEOUT
+        return (time.monotonic() - self._cooldown_start) >= settings.get('DISCONNECT_TIMEOUT', 2)

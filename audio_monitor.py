@@ -1,7 +1,7 @@
 """
 AirPods Auto-Switch — Audio Monitor
 Detects whether Windows is currently outputting audio by checking ALL 
-active render endpoints via WASAPI / pycaw.
+active render endpoints via WASAPI / pycaw. Supports App Blacklisting.
 """
 
 import logging
@@ -9,98 +9,82 @@ import comtypes
 from ctypes import cast, POINTER
 
 from pycaw.pycaw import AudioUtilities, IAudioMeterInformation
-from pycaw.constants import EDataFlow
 from comtypes import CLSCTX_ALL
 
-from config import AUDIO_THRESHOLD
+from settings_manager import settings
 
 log = logging.getLogger(__name__)
 
 
 class AudioMonitor:
-    """Monitors all active audio output devices for activity."""
+    """Monitors active audio sessions for activity, applying app filtering."""
 
-    def __init__(self, threshold: float = AUDIO_THRESHOLD):
-        self.threshold = threshold
-        self._setup_done = False
-        self._meters = []
-
-    def _reset(self):
-        log.debug("Resetting audio meters...")
-        self._meters.clear()
+    def __init__(self):
         self._setup_done = False
 
     def get_peak_level(self) -> float:
         """
-        Return the max peak audio level across all active output devices (0.0 – 1.0).
+        Return the max peak audio level across non-blacklisted active sessions (0.0 – 1.0).
         Returns 0.0 on any error.
         """
         if not self._setup_done:
-            # Need to initialize COM on this thread
             comtypes.CoInitialize()
-            
-            enumerator = AudioUtilities.GetDeviceEnumerator()
-            # 1 = DEVICE_STATE_ACTIVE
-            try:
-                collection = enumerator.EnumAudioEndpoints(EDataFlow.eRender.value, 1)
-                count = collection.GetCount()
-                for i in range(count):
-                    dev = collection.Item(i)
-                    try:
-                        interface = dev.Activate(IAudioMeterInformation._iid_, CLSCTX_ALL, None)
-                        meter = cast(interface, POINTER(IAudioMeterInformation))
-                        self._meters.append(meter)
-                    except Exception:
-                        pass
-                self._setup_done = True
-            except Exception as e:
-                log.error(f"Failed to enumerate audio devices: {e}")
-                return 0.0
+            self._setup_done = True
 
         max_peak = 0.0
-        dead_meters = []
-        for meter in self._meters:
-            try:
-                val = meter.GetPeakValue()
-                if val > max_peak:
-                    max_peak = val
-            except Exception:
-                dead_meters.append(meter)
-                
-        if dead_meters:
-            for m in dead_meters:
-                self._meters.remove(m)
-            self._setup_done = False
+        
+        # Pull dynamic settings
+        threshold = settings.get("AUDIO_THRESHOLD", 0.001)
+        use_blacklist = settings.get("BLACKLIST_ENABLED", True)
+        blacklist = settings.get("APP_BLACKLIST", [])
 
-        # Fallback for virtual devices (like GG Sonar) that might not expose meters:
-        # Check if any audio session is active.
-        if max_peak == 0.0:
-            try:
-                sessions = AudioUtilities.GetAllSessions()
-                for session in sessions:
+        try:
+            sessions = AudioUtilities.GetAllSessions()
+            for session in sessions:
+                try:
+                    # Ignore System Sounds and other sessions without a valid process if needed
+                    # "Idle" is sometimes reported for system things. 
+                    proc_name = session.Process.name() if session.Process else None
+                    
+                    if use_blacklist and proc_name in blacklist:
+                        continue # Skip blacklisted apps
+
+                    # Try to read the peak meter for this specific session
                     try:
-                        # AudioSessionStateActive = 1
-                        if session._ctl.GetState() == 1:
-                            return 0.05 # Fake peak above threshold to trigger connect
+                        meter = cast(session._ctl, POINTER(IAudioMeterInformation))
+                        val = meter.GetPeakValue()
+                        if val > max_peak:
+                            max_peak = val
                     except Exception:
                         pass
-            except Exception:
-                pass
+                    
+                    # Fallback: if meter fails but session is Active
+                    # 1 = AudioSessionStateActive
+                    if max_peak < threshold and session._ctl.GetState() == 1:
+                        max_peak = max(max_peak, 0.05) # Fake peak to trigger connect
+
+                except Exception:
+                    pass
+        except Exception as e:
+            log.error(f"Failed to enumerate audio sessions: {e}")
+            return 0.0
 
         return max_peak
 
     def is_audio_playing(self) -> bool:
         """True if audio output exceeds the configured threshold."""
         level = self.get_peak_level()
+        threshold = settings.get("AUDIO_THRESHOLD", 0.001)
+        
         log.debug(f"Polled max peak level across devices: {level:.6f}")
-        if level > self.threshold:
+        if level > threshold:
             log.debug(f"Audio playing (peak={level:.4f})")
             return True
         return False
 
     def cleanup(self):
         """Release COM resources."""
-        self._reset()
+        self._setup_done = False
         try:
             comtypes.CoUninitialize()
         except Exception:
