@@ -58,10 +58,7 @@ class AudioMonitor:
                     except Exception:
                         pass
                     
-                    # Fallback: if meter fails but session is Active
-                    # 1 = AudioSessionStateActive
-                    if max_peak < threshold and session._ctl.GetState() == 1:
-                        max_peak = max(max_peak, 0.05) # Fake peak to trigger connect
+
 
                 except Exception:
                     pass
