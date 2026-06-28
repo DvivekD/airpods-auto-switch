@@ -39,7 +39,20 @@ class AudioMonitor:
         blacklist = settings.get("APP_BLACKLIST", [])
 
         try:
-            sessions = AudioUtilities.GetAllSessions()
+            from pycaw.api.audiopolicy import IAudioSessionControl2
+            from pycaw.utils import AudioSession
+            
+            sessions = []
+            devices = AudioUtilities.GetAllDevices()
+            for d in devices:
+                if d.state.value == 1 and d.AudioSessionManager:
+                    enum = d.AudioSessionManager.GetSessionEnumerator()
+                    for i in range(enum.GetCount()):
+                        ctl = enum.GetSession(i)
+                        if ctl:
+                            ctl2 = ctl.QueryInterface(IAudioSessionControl2)
+                            if ctl2:
+                                sessions.append(AudioSession(ctl2))
             for session in sessions:
                 try:
                     # Ignore System Sounds and other sessions without a valid process if needed
