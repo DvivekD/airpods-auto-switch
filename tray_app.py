@@ -145,5 +145,5 @@ class TrayApp:
 
     def _on_settings(self, icon, item):
         log.info("Settings requested.")
-        import gui
-        threading.Thread(target=gui.open_settings_window, daemon=True).start()
+        import subprocess, sys
+        subprocess.Popen([sys.executable, "--settings"])

@@ -175,6 +175,11 @@ class AutoSwitchEngine:
 
     def _do_connect(self):
         """Attempt to connect AirPods."""
+        if self.bt.is_connected():
+            log.info("Already connected via Bluetooth. Updating state.")
+            self.state = State.CONNECTED
+            return
+
         now = time.monotonic()
         if now - self._last_connect_attempt < settings.get('CONNECTION_RETRY_DELAY', 5):
             return
@@ -183,8 +188,6 @@ class AutoSwitchEngine:
         self.state = State.CONNECTING
 
         if self.bt.connect():
-            # Reset audio meters — new endpoints appeared after PnP toggle
-            self.audio._reset()
             self.state = State.CONNECTED
         else:
             log.info("Connection failed — will retry on next audio cycle.")
@@ -195,8 +198,6 @@ class AutoSwitchEngine:
         self.state = State.DISCONNECTING
         self.bt.disconnect()
         self._cooldown_start = None
-        # Reset audio meters — endpoints changed after PnP disable
-        self.audio._reset()
 
     def _start_cooldown(self):
         self._cooldown_start = time.monotonic()

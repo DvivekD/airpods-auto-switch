@@ -24,6 +24,11 @@ def setup_logging():
 
 
 def main():
+    if "--settings" in sys.argv:
+        import gui
+        gui.open_settings_window()
+        sys.exit(0)
+
     setup_logging()
     log = logging.getLogger("main")
 
