@@ -64,7 +64,7 @@ class AudioMonitor:
 
                     # Try to read the peak meter for this specific session
                     try:
-                        meter = cast(session._ctl, POINTER(IAudioMeterInformation))
+                        meter = session._ctl.QueryInterface(IAudioMeterInformation)
                         val = meter.GetPeakValue()
                         if val > max_peak:
                             max_peak = val
