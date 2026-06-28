@@ -222,7 +222,8 @@ class BluetoothManager:
         try:
             result = subprocess.run(
                 [exe, "pair-by-mac", "--mac", mac, "--type", "Bluetooth"],
-                capture_output=True, text=True, timeout=15
+                capture_output=True, text=True, timeout=15,
+                creationflags=0x08000000
             )
             log.debug(f"Connect stdout: {result.stdout.strip()}")
             if result.returncode == 0:
@@ -249,7 +250,8 @@ class BluetoothManager:
         try:
             result = subprocess.run(
                 [exe, "disconnect-bluetooth-audio-device-by-mac", "--mac", mac, "--type", "Bluetooth"],
-                capture_output=True, text=True, timeout=15
+                capture_output=True, text=True, timeout=15,
+                creationflags=0x08000000
             )
             log.debug(f"Disconnect stdout: {result.stdout.strip()}")
             if result.returncode == 0:

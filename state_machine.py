@@ -129,6 +129,11 @@ class AutoSwitchEngine:
     def _loop(self):
         """Background thread: poll audio, manage state transitions."""
         _last_state_log = 0
+        
+        # Initialize state based on actual bluetooth connection
+        if self.bt.is_connected():
+            log.info("AirPods are already connected at startup. Initialising as CONNECTED.")
+            self.state = State.CONNECTED
 
         while self._running:
             try:
@@ -152,6 +157,9 @@ class AutoSwitchEngine:
                 if current == State.IDLE:
                     if audio_playing:
                         self._do_connect()
+                    elif self.bt.is_connected():
+                        log.info("AirPods detected as connected while IDLE. Updating state to CONNECTED.")
+                        self.state = State.CONNECTED
 
                 elif current == State.CONNECTED:
                     if not audio_playing:
