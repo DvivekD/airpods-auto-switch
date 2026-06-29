@@ -3,20 +3,22 @@ import json
 import random
 import string
 
+
 def _generate_topic():
     """Generate a random topic name for ntfy.sh handoff."""
     suffix = ''.join(random.choices(string.ascii_lowercase + string.digits, k=8))
     return f"airpods-switch-{suffix}"
 
+
 DEFAULT_SETTINGS = {
-    "DEVICE_NAME": "rei’s AirPods Pro",
+    "DEVICE_NAME": "rei\u2019s AirPods Pro",
     "AUDIO_THRESHOLD": 0.001,
     "DISCONNECT_TIMEOUT": 2,
     "CONNECTION_RETRY_DELAY": 5,
     "BLACKLIST_ENABLED": True,
-    "APP_BLACKLIST": ["explorer.exe", "ms-teams.exe"], # Examples of annoying pinging apps
+    "APP_BLACKLIST": ["explorer.exe", "ms-teams.exe"],
     "HANDOFF_ENABLED": True,
-    "HANDOFF_TOPIC": _generate_topic(),
+    "HANDOFF_TOPIC": "",  # Generated once on first run, then persisted
 }
 
 SETTINGS_DIR = os.path.join(os.environ.get("LOCALAPPDATA", os.path.expanduser("~")), "AirPodsAutoSwitch")
@@ -26,6 +28,13 @@ class SettingsManager:
     def __init__(self):
         self.settings = DEFAULT_SETTINGS.copy()
         self.load()
+        self._ensure_handoff_topic()
+
+    def _ensure_handoff_topic(self):
+        """Generate a stable handoff topic on first run and persist it."""
+        if not self.settings.get("HANDOFF_TOPIC"):
+            self.settings["HANDOFF_TOPIC"] = _generate_topic()
+            self.save()
 
     def load(self):
         if not os.path.exists(SETTINGS_DIR):
