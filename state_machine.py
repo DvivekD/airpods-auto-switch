@@ -1,7 +1,7 @@
 """
 AirPods Auto-Switch — State Machine
 Core logic: monitors audio, manages Bluetooth connection lifecycle,
-handles cooldown timers, and snooze state.
+handles cooldown timers, snooze state, and device handoff (yield).
 """
 
 import enum
@@ -11,6 +11,7 @@ import logging
 
 from audio_monitor import AudioMonitor
 from bluetooth_manager import BluetoothManager
+from media_control import send_media_pause
 from settings_manager import settings
 from config import AUDIO_POLL_INTERVAL
 
@@ -24,6 +25,7 @@ class State(enum.Enum):
     COOLDOWN      = "Cooldown"
     DISCONNECTING = "Disconnecting…"
     SNOOZED       = "Snoozed"
+    YIELDED       = "Yielded to Phone"
 
 
 class AutoSwitchEngine:
@@ -33,6 +35,7 @@ class AutoSwitchEngine:
       2. Connects AirPods when audio is detected
       3. Disconnects after a silence timeout
       4. Supports snooze to pause auto-switching
+      5. Yields to phone on remote signal or robbery detection
     """
 
     def __init__(
@@ -124,6 +127,27 @@ class AutoSwitchEngine:
         self._do_disconnect()
         self.state = State.IDLE
 
+    def yield_to_phone(self):
+        """
+        Hand off AirPods to phone. Called by:
+        - HandoffListener (ntfy.sh remote signal from iPhone Shortcuts)
+        - Robbery Detector (BT connection lost while audio was playing)
+        
+        Pauses Windows media, drops BT, enters YIELDED state.
+        Auto-recovers when Windows audio starts playing again.
+        """
+        log.info("⚡ YIELD: Handing off AirPods to phone.")
+        
+        # Pause Windows media so speakers don't blast
+        send_media_pause()
+        
+        # Drop BT connection if still connected
+        if self.bt.is_connected():
+            self._do_disconnect()
+        
+        self.state = State.YIELDED
+        log.info("Yielded — waiting for Windows audio to auto-recover.")
+
     # ── Main Loop ─────────────────────────────────────────────────────
 
     def _loop(self):
@@ -154,6 +178,7 @@ class AutoSwitchEngine:
                     log.info(f"[tick] state={current.value}, audio={audio_playing}{remaining}")
                     _last_state_log = now
 
+                # ── IDLE ──────────────────────────────────────────
                 if current == State.IDLE:
                     if audio_playing:
                         self._do_connect()
@@ -161,18 +186,38 @@ class AutoSwitchEngine:
                         log.info("AirPods detected as connected while IDLE. Updating state to CONNECTED.")
                         self.state = State.CONNECTED
 
+                # ── CONNECTED ─────────────────────────────────────
                 elif current == State.CONNECTED:
-                    if not audio_playing:
+                    # Robbery Detector: check if another device stole the AirPods
+                    if not self.bt.is_connected():
+                        log.info("🚨 ROBBERY DETECTED: AirPods disconnected unexpectedly!")
+                        if audio_playing:
+                            log.info("Audio was playing — pausing media and yielding to phone.")
+                            send_media_pause()
+                        self.state = State.YIELDED
+                    elif not audio_playing:
                         self._start_cooldown()
 
+                # ── COOLDOWN ──────────────────────────────────────
                 elif current == State.COOLDOWN:
-                    if audio_playing:
+                    # Robbery during cooldown
+                    if not self.bt.is_connected():
+                        log.info("🚨 ROBBERY DETECTED during cooldown!")
+                        self.state = State.YIELDED
+                    elif audio_playing:
                         log.info("Audio resumed during cooldown — staying connected.")
                         self._cooldown_start = None
                         self.state = State.CONNECTED
                     elif self._cooldown_expired():
                         self._do_disconnect()
                         self.state = State.IDLE
+
+                # ── YIELDED ───────────────────────────────────────
+                elif current == State.YIELDED:
+                    # Auto-recover: when Windows audio starts, reclaim AirPods
+                    if audio_playing:
+                        log.info("🔄 Audio detected while YIELDED — reclaiming AirPods!")
+                        self._do_connect()
 
             except Exception as exc:
                 log.error(f"Loop error: {exc}", exc_info=True)

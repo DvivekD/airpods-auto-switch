@@ -56,6 +56,8 @@ def main():
     from bluetooth_manager import BluetoothManager
     from state_machine import AutoSwitchEngine
     from tray_app import TrayApp
+    from handoff_listener import HandoffListener
+    from settings_manager import settings
 
     # ── Initialise components ─────────────────────────────────────────
     bt = BluetoothManager()
@@ -77,6 +79,17 @@ def main():
     engine = AutoSwitchEngine(audio_monitor=audio, bt_manager=bt)
     tray = TrayApp(engine)
 
+    # ── Handoff Listener (ntfy.sh cloud relay) ────────────────────────
+    handoff = None
+    if settings.get("HANDOFF_ENABLED", True):
+        topic = settings.get("HANDOFF_TOPIC", "")
+        if topic:
+            handoff = HandoffListener(engine=engine, topic=topic)
+            handoff.start()
+            log.info(f"📱 iPhone Handoff URL: https://ntfy.sh/{topic}")
+        else:
+            log.warning("Handoff enabled but no topic configured.")
+
     # ── Start ─────────────────────────────────────────────────────────
     engine.start()
 
@@ -85,6 +98,8 @@ def main():
     except KeyboardInterrupt:
         pass
     finally:
+        if handoff:
+            handoff.stop()
         engine.stop()
         audio.cleanup()
         log.info("Goodbye.")

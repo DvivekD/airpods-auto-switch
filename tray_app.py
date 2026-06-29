@@ -22,6 +22,7 @@ STATE_COLORS = {
     State.COOLDOWN:      ("#FBBF24", "#F59E0B"),  # Amber
     State.DISCONNECTING: ("#F87171", "#EF4444"),  # Red
     State.SNOOZED:       ("#F87171", "#EF4444"),  # Red
+    State.YIELDED:       ("#C084FC", "#A855F7"),  # Purple — handed to phone
 }
 
 

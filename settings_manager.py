@@ -1,5 +1,12 @@
 import os
 import json
+import random
+import string
+
+def _generate_topic():
+    """Generate a random topic name for ntfy.sh handoff."""
+    suffix = ''.join(random.choices(string.ascii_lowercase + string.digits, k=8))
+    return f"airpods-switch-{suffix}"
 
 DEFAULT_SETTINGS = {
     "DEVICE_NAME": "rei’s AirPods Pro",
@@ -7,7 +14,9 @@ DEFAULT_SETTINGS = {
     "DISCONNECT_TIMEOUT": 2,
     "CONNECTION_RETRY_DELAY": 5,
     "BLACKLIST_ENABLED": True,
-    "APP_BLACKLIST": ["explorer.exe", "ms-teams.exe"] # Examples of annoying pinging apps
+    "APP_BLACKLIST": ["explorer.exe", "ms-teams.exe"], # Examples of annoying pinging apps
+    "HANDOFF_ENABLED": True,
+    "HANDOFF_TOPIC": _generate_topic(),
 }
 
 SETTINGS_DIR = os.path.join(os.environ.get("LOCALAPPDATA", os.path.expanduser("~")), "AirPodsAutoSwitch")
