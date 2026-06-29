@@ -138,8 +138,12 @@ class AutoSwitchEngine:
         """
         log.info("⚡ YIELD: Handing off AirPods to phone.")
         
-        # Pause Windows media so speakers don't blast
-        send_media_pause()
+        # Only pause Windows media if audio is actually playing
+        if self.audio.is_audio_playing():
+            log.info("Audio was playing — pausing Windows media so speakers don't blast.")
+            send_media_pause()
+        else:
+            log.info("Audio already paused — skipping media pause.")
         
         # Drop BT connection if still connected
         if self.bt.is_connected():
@@ -195,7 +199,7 @@ class AutoSwitchEngine:
                             log.info("Audio was playing — pausing media and yielding to phone.")
                             send_media_pause()
                         self.state = State.YIELDED
-                    elif not audio_playing:
+                    elif not audio_playing and settings.get('DISCONNECT_ON_SILENCE', False):
                         self._start_cooldown()
 
                 # ── COOLDOWN ──────────────────────────────────────

@@ -13,6 +13,7 @@ def _generate_topic():
 DEFAULT_SETTINGS = {
     "DEVICE_NAME": "rei\u2019s AirPods Pro",
     "AUDIO_THRESHOLD": 0.001,
+    "DISCONNECT_ON_SILENCE": False,
     "DISCONNECT_TIMEOUT": 2,
     "CONNECTION_RETRY_DELAY": 5,
     "BLACKLIST_ENABLED": True,
