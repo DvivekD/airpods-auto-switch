@@ -7,7 +7,7 @@ All tuneable constants in one place.
 DEVICE_NAME = "rei\u2019s AirPods Pro"  # Note: uses Unicode right quote (U+2019)
 
 # ── Audio Detection ──
-AUDIO_POLL_INTERVAL = 3        # seconds between audio level checks
+AUDIO_POLL_INTERVAL = 0.5      # seconds between audio level checks
 AUDIO_THRESHOLD = 0.001        # minimum peak level to count as "audio playing"
 
 # ── Timing ──
